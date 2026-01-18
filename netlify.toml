@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Background function for analysis (15 min timeout)
+[functions]
+  node_bundler = "esbuild"
+
+[functions."analyze-background"]
+  schedule = ""
