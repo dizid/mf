@@ -43,7 +43,7 @@ export default async function ProjectsPage() {
   )
 
   return (
-    <div className="p-4">
+    <div className="p-4 pb-24">
       {/* Header */}
       <header className="mb-6">
         <h1 className="text-heading font-bold text-gray-900">Projects</h1>

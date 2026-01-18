@@ -6,6 +6,8 @@ import { auth } from '@/lib/auth'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
 import { Button } from '@/components/ui/Button'
+import { ScoreDelta } from '@/components/ScoreDelta'
+import { ImprovementSuggestions } from '@/components/ImprovementSuggestions'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +43,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     .limit(10)
 
   const latestEval = evalHistory[0]
+  const previousEval = evalHistory[1] // For showing score delta
   const hasEvaluation = !!latestEval
 
   return (
@@ -80,11 +83,18 @@ export default async function ProjectDetailPage({ params }: Props) {
       {/* Overall Score */}
       {latestEval?.overallScore && (
         <div className="bg-white rounded-xl p-6 mb-6 text-center shadow-sm">
-          <div className={`text-5xl font-bold ${
-            Number(latestEval.overallScore) >= 7 ? 'text-success' :
-            Number(latestEval.overallScore) >= 5 ? 'text-warning' : 'text-danger'
-          }`}>
-            {Number(latestEval.overallScore).toFixed(1)}
+          <div className="flex items-center justify-center gap-3">
+            <div className={`text-5xl font-bold ${
+              Number(latestEval.overallScore) >= 7 ? 'text-success' :
+              Number(latestEval.overallScore) >= 5 ? 'text-warning' : 'text-danger'
+            }`}>
+              {Number(latestEval.overallScore).toFixed(1)}
+            </div>
+            <ScoreDelta
+              current={Number(latestEval.overallScore)}
+              previous={previousEval?.overallScore ? Number(previousEval.overallScore) : null}
+              size="large"
+            />
           </div>
           <div className="text-label text-gray-500 mt-1">Overall Score (out of 10)</div>
         </div>
@@ -101,6 +111,9 @@ export default async function ProjectDetailPage({ params }: Props) {
 
       {/* Score Breakdown */}
       {latestEval && <ScoreBreakdown evaluation={latestEval} />}
+
+      {/* Improvement Suggestions */}
+      {latestEval && <ImprovementSuggestions evaluation={latestEval} />}
 
       {/* No evaluation message */}
       {!hasEvaluation && (

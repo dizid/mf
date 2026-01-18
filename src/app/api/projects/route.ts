@@ -28,6 +28,19 @@ export async function GET() {
           businessScore: evaluations.businessScore,
           personalScore: evaluations.personalScore,
           recommendation: evaluations.recommendation,
+          // Individual metrics for compare page
+          scoreUsability: evaluations.scoreUsability,
+          scoreValue: evaluations.scoreValue,
+          scoreFeatures: evaluations.scoreFeatures,
+          scorePolish: evaluations.scorePolish,
+          scoreCompetition: evaluations.scoreCompetition,
+          scoreMarket: evaluations.scoreMarket,
+          scoreMonetization: evaluations.scoreMonetization,
+          scoreMaintenance: evaluations.scoreMaintenance,
+          scoreGrowth: evaluations.scoreGrowth,
+          scorePassion: evaluations.scorePassion,
+          scoreLearning: evaluations.scoreLearning,
+          scorePride: evaluations.scorePride,
         })
         .from(evaluations)
         .where(eq(evaluations.projectId, project.id))

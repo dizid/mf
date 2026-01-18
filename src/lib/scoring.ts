@@ -200,6 +200,11 @@ export const metricDefinitions = {
       5: 'Decent, some learning curve',
       10: 'Intuitive, anyone can use it instantly',
     },
+    improvements: [
+      'Conduct 3 user interviews to identify pain points',
+      'Add onboarding flow for new users',
+      'Simplify the most common user journey',
+    ],
   },
   value: {
     label: 'User Value',
@@ -210,6 +215,11 @@ export const metricDefinitions = {
       5: 'Solves a problem, but not well',
       10: 'Essential, users would pay for this',
     },
+    improvements: [
+      'Talk to 5 potential users about their needs',
+      'Focus on solving one problem really well',
+      'Remove features that don\'t serve the core value',
+    ],
   },
   features: {
     label: 'Features',
@@ -220,6 +230,11 @@ export const metricDefinitions = {
       5: 'Core features done, some gaps',
       10: 'Full-featured, nothing missing',
     },
+    improvements: [
+      'List the top 3 missing features users ask for',
+      'Build one high-impact feature this month',
+      'Consider what competitors have that you lack',
+    ],
   },
   polish: {
     label: 'Polish',
@@ -230,6 +245,11 @@ export const metricDefinitions = {
       5: 'Works but feels unfinished',
       10: 'Professional, polished experience',
     },
+    improvements: [
+      'Fix the 5 most annoying bugs',
+      'Add loading states and error handling',
+      'Improve visual consistency across screens',
+    ],
   },
   competition: {
     label: 'Competition',
@@ -240,6 +260,11 @@ export const metricDefinitions = {
       5: 'On par with competition',
       10: 'Best in class, clear differentiator',
     },
+    improvements: [
+      'Identify your unique differentiator',
+      'Study top 3 competitors\' weaknesses',
+      'Double down on what makes you different',
+    ],
   },
 
   // Business Metrics
@@ -252,6 +277,11 @@ export const metricDefinitions = {
       5: 'Medium market, decent audience',
       10: 'Huge market, mass appeal',
     },
+    improvements: [
+      'Research adjacent markets you could serve',
+      'Identify underserved segments in your space',
+      'Consider international expansion potential',
+    ],
   },
   monetization: {
     label: 'Monetization',
@@ -262,6 +292,11 @@ export const metricDefinitions = {
       5: 'Could monetize somehow',
       10: 'Clear, proven revenue model',
     },
+    improvements: [
+      'Test willingness to pay with a landing page',
+      'Identify your highest-value features for premium tier',
+      'Look at how competitors monetize',
+    ],
   },
   maintenance: {
     label: 'Maintenance Cost',
@@ -273,6 +308,11 @@ export const metricDefinitions = {
       10: 'Constant firefighting',
     },
     inverted: true, // Lower is better
+    improvements: [
+      'Automate repetitive maintenance tasks',
+      'Add monitoring and alerting',
+      'Reduce dependencies and complexity',
+    ],
   },
   growth: {
     label: 'Growth Potential',
@@ -283,6 +323,11 @@ export const metricDefinitions = {
       5: 'Some growth possible',
       10: 'Viral potential, exponential growth',
     },
+    improvements: [
+      'Add sharing or referral mechanisms',
+      'Build features that get better with more users',
+      'Create content that attracts organic traffic',
+    ],
   },
 
   // Personal Metrics
@@ -295,6 +340,11 @@ export const metricDefinitions = {
       5: 'It\'s okay',
       10: 'Love it, can\'t wait to work on it',
     },
+    improvements: [
+      'Work on the parts you enjoy most',
+      'Outsource or automate tedious tasks',
+      'Set smaller, achievable goals for quick wins',
+    ],
   },
   learning: {
     label: 'Learning',
@@ -305,6 +355,11 @@ export const metricDefinitions = {
       5: 'Some learning opportunities',
       10: 'Constantly learning new things',
     },
+    improvements: [
+      'Add a feature using a technology you want to learn',
+      'Refactor using a new pattern or approach',
+      'Set a learning goal tied to the project',
+    ],
   },
   pride: {
     label: 'Pride',
@@ -315,6 +370,11 @@ export const metricDefinitions = {
       5: 'It\'s decent work',
       10: 'Proud to show anyone',
     },
+    improvements: [
+      'Redesign the landing page or hero section',
+      'Add one showcase-worthy feature',
+      'Write a blog post or case study about it',
+    ],
   },
 } as const
 

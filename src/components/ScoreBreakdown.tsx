@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import type { Evaluation } from '@/lib/db/schema'
 import { metricDefinitions } from '@/lib/scoring'
 
@@ -74,24 +77,6 @@ export function ScoreBreakdown({ evaluation }: ScoreBreakdownProps) {
         evaluation={evaluation}
       />
 
-      {/* Notes */}
-      {evaluation.notes && Object.keys(evaluation.notes).length > 0 && (
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-4">Notes</h3>
-          <div className="space-y-3">
-            {Object.entries(evaluation.notes).map(([key, note]) => {
-              if (!note) return null
-              const def = metricDefinitions[key as keyof typeof metricDefinitions]
-              return (
-                <div key={key} className="text-sm">
-                  <div className="font-medium text-gray-700">{def?.label || key}</div>
-                  <div className="text-gray-500">{note}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -105,6 +90,9 @@ function MetricSection({
   metrics: readonly string[]
   evaluation: Evaluation
 }) {
+  const [expandedMetric, setExpandedMetric] = useState<string | null>(null)
+  const notes = evaluation.notes as Record<string, string> | null
+
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm">
       <h3 className="font-semibold text-gray-900 mb-4">{title}</h3>
@@ -113,6 +101,9 @@ function MetricSection({
           const key = fieldToKey[field]
           const def = metricDefinitions[key]
           const score = evaluation[field as keyof Evaluation] as number | null
+          const note = notes?.[key]
+          const hasNote = !!note
+          const isExpanded = expandedMetric === field
 
           if (score === null || score === undefined) return null
 
@@ -120,21 +111,39 @@ function MetricSection({
 
           return (
             <div key={field}>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-body text-gray-700">
-                  {def?.label || field}
-                  {isInverted && <span className="text-xs text-gray-400 ml-1">(lower is better)</span>}
-                </span>
-                <span className={`font-semibold ${isInverted ? getInvertedScoreColor(score) : getScoreColor(score)}`}>
-                  {score}/10
-                </span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${isInverted ? getInvertedScoreBarColor(score) : getScoreBarColor(score)}`}
-                  style={{ width: `${score * 10}%` }}
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => hasNote && setExpandedMetric(isExpanded ? null : field)}
+                className={`w-full text-left ${hasNote ? 'cursor-pointer' : 'cursor-default'}`}
+                disabled={!hasNote}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-body text-gray-700 flex items-center gap-1">
+                    {def?.label || field}
+                    {isInverted && <span className="text-xs text-gray-400">(lower is better)</span>}
+                    {hasNote && (
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className={`font-semibold ${isInverted ? getInvertedScoreColor(score) : getScoreColor(score)}`}>
+                    {score}/10
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${isInverted ? getInvertedScoreBarColor(score) : getScoreBarColor(score)}`}
+                    style={{ width: `${score * 10}%` }}
+                  />
+                </div>
+              </button>
+              {/* Expanded note */}
+              {isExpanded && note && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 italic">
+                  {note}
+                </div>
+              )}
             </div>
           )
         })}

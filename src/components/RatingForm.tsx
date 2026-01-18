@@ -150,6 +150,11 @@ export function RatingForm({ projectId, projectName, initialScores = {}, initial
             max="10"
             value={currentScore ?? 5}
             onChange={(e) => handleScoreChange(parseInt(e.target.value))}
+            aria-label={`Rate ${definition.label}`}
+            aria-valuemin={1}
+            aria-valuemax={10}
+            aria-valuenow={currentScore ?? undefined}
+            aria-valuetext={currentScore ? `${currentScore} out of 10` : 'Not yet rated'}
             className="w-full h-12 appearance-none bg-gray-100 rounded-full cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:w-12
