@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { isAuthenticated, getDefaultUserId } from '@/lib/password-auth'
 import { db, projects, evaluations } from '@/lib/db'
 import { eq, desc } from 'drizzle-orm'
 import { createProjectSchema, formatZodErrors } from '@/lib/validations'
-import { canCreateProject, getUpgradeMessage } from '@/lib/limits'
 
-// GET /api/projects - List all projects for the current user with latest evaluation
+// GET /api/projects - List all projects with latest evaluation
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const userId = await getDefaultUserId()
 
   const userProjects = await db
     .select()
     .from(projects)
-    .where(eq(projects.ownerId, session.user.id))
+    .where(eq(projects.ownerId, userId))
     .orderBy(desc(projects.updatedAt))
 
   // Fetch latest evaluation for each project
@@ -28,7 +28,6 @@ export async function GET() {
           businessScore: evaluations.businessScore,
           personalScore: evaluations.personalScore,
           recommendation: evaluations.recommendation,
-          // Individual metrics for compare page
           scoreUsability: evaluations.scoreUsability,
           scoreValue: evaluations.scoreValue,
           scoreFeatures: evaluations.scoreFeatures,
@@ -60,8 +59,7 @@ export async function GET() {
 
 // POST /api/projects - Create a new project
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({
       error: {
         code: 'UNAUTHORIZED',
@@ -71,18 +69,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Check if user can create more projects
-    const canCreate = await canCreateProject(session.user.id)
-    if (!canCreate) {
-      return NextResponse.json({
-        error: {
-          code: 'FORBIDDEN',
-          message: getUpgradeMessage('projects'),
-          upgradeRequired: true,
-        }
-      }, { status: 403 })
-    }
-
+    const userId = await getDefaultUserId()
     const body = await req.json()
 
     // Validate input
@@ -105,7 +92,7 @@ export async function POST(req: NextRequest) {
         name,
         url,
         description: description || null,
-        ownerId: session.user.id,
+        ownerId: userId,
       })
       .returning()
 

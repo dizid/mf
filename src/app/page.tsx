@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { db, projects, evaluations } from '@/lib/db'
 import { eq, desc } from 'drizzle-orm'
-import { auth } from '@/lib/auth'
+import { getDefaultUserId } from '@/lib/password-auth'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
 import { recommendationInfo, metricDefinitions, type MetricKey } from '@/lib/scoring'
-import { LandingPage } from '@/components/LandingPage'
 import type { Recommendation, Evaluation } from '@/lib/db/schema'
 
 export const dynamic = 'force-dynamic'
@@ -172,18 +171,13 @@ function getScoreColor(score: number | null): string {
 }
 
 export default async function HomePage() {
-  const session = await auth()
-
-  // Show landing page for non-authenticated users
-  if (!session?.user) {
-    return <LandingPage />
-  }
+  const userId = await getDefaultUserId()
 
   // Get all projects with their latest evaluation
   const userProjects = await db
     .select()
     .from(projects)
-    .where(eq(projects.ownerId, session.user.id))
+    .where(eq(projects.ownerId, userId))
     .orderBy(desc(projects.updatedAt))
 
   // Get latest evaluation for each project

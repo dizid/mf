@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { UserMenu } from './UserMenu'
+import { LogoutButton } from './LogoutButton'
 
 const navItems = [
   { href: '/', label: 'Home', icon: HomeIcon },
@@ -10,16 +10,7 @@ const navItems = [
   { href: '/compare', label: 'Compare', icon: CompareIcon },
 ]
 
-interface BottomNavProps {
-  user?: {
-    name?: string | null
-    email?: string | null
-    image?: string | null
-  }
-  tier?: string
-}
-
-export function BottomNav({ user, tier }: BottomNavProps) {
+export function BottomNav() {
   const pathname = usePathname()
 
   return (
@@ -43,7 +34,7 @@ export function BottomNav({ user, tier }: BottomNavProps) {
             </Link>
           )
         })}
-        {user && <UserMenu user={user} tier={tier} />}
+        <LogoutButton />
       </div>
     </nav>
   )

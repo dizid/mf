@@ -1,8 +1,7 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { db, projects, evaluations } from '@/lib/db'
 import { eq, desc } from 'drizzle-orm'
-import { auth } from '@/lib/auth'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
 import { Button } from '@/components/ui/Button'
@@ -17,10 +16,6 @@ interface Props {
 
 export default async function ProjectDetailPage({ params }: Props) {
   const { id } = await params
-  const session = await auth()
-  if (!session?.user) {
-    redirect('/auth/signin')
-  }
 
   // Get project
   const project = await db
@@ -100,11 +95,21 @@ export default async function ProjectDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Rate Button */}
-      <div className="mb-6">
-        <Link href={`/projects/${id}/rate`}>
+      {/* Evaluation Buttons */}
+      <div className="mb-6 space-y-3">
+        <Link href={`/projects/${id}/ai-evaluate`}>
           <Button size="large" className="w-full">
-            {hasEvaluation ? 'Re-evaluate' : 'Rate This App'}
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              {hasEvaluation ? 'AI Re-evaluate' : 'AI Evaluate'}
+            </span>
+          </Button>
+        </Link>
+        <Link href={`/projects/${id}/rate`}>
+          <Button size="large" variant="secondary" className="w-full">
+            {hasEvaluation ? 'Manual Re-evaluate' : 'Manual Rate'}
           </Button>
         </Link>
       </div>
@@ -120,7 +125,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         <div className="bg-gray-50 rounded-xl p-6 text-center">
           <p className="text-body text-gray-500 mb-2">No evaluation yet</p>
           <p className="text-label text-gray-400">
-            Rate this app to see scores and get a recommendation
+            Use AI Evaluate for automatic analysis or Manual Rate for custom scoring
           </p>
         </div>
       )}

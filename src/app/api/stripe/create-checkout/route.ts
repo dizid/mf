@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { isAuthenticated, getDefaultUserId } from '@/lib/password-auth'
 import { stripe, TIERS, TierName, getOrCreateStripeCustomer } from '@/lib/stripe'
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id || !session.user.email) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({
       error: {
         code: 'UNAUTHORIZED',
@@ -14,6 +13,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const userId = await getDefaultUserId()
     const { tier } = await req.json() as { tier: TierName }
 
     if (!tier || !TIERS[tier] || tier === 'free') {
@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
 
     // Get or create Stripe customer
     const customerId = await getOrCreateStripeCustomer(
-      session.user.id,
-      session.user.email,
-      session.user.name
+      userId,
+      'owner@apprater.local',
+      'App Owner'
     )
 
     // Create checkout session
@@ -52,10 +52,10 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL}/pricing?success=true`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/pricing?canceled=true`,
+      success_url: `${process.env.AUTH_URL || 'http://localhost:3000'}/pricing?success=true`,
+      cancel_url: `${process.env.AUTH_URL || 'http://localhost:3000'}/pricing?canceled=true`,
       metadata: {
-        userId: session.user.id,
+        userId,
         tier,
       },
     })

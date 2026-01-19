@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { db, projects } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { RatingForm } from '@/components/RatingForm'
+import { AIEvaluationFlow } from '@/components/AIEvaluationFlow'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +9,7 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function RateProjectPage({ params }: Props) {
+export default async function AIEvaluatePage({ params }: Props) {
   const { id } = await params
 
   // Get project
@@ -25,7 +25,7 @@ export default async function RateProjectPage({ params }: Props) {
   }
 
   return (
-    <RatingForm
+    <AIEvaluationFlow
       projectId={id}
       projectName={project.name}
     />

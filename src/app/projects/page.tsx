@@ -1,23 +1,19 @@
 import Link from 'next/link'
 import { db, projects, evaluations } from '@/lib/db'
 import { desc, eq } from 'drizzle-orm'
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { getDefaultUserId } from '@/lib/password-auth'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
-  const session = await auth()
-  if (!session?.user) {
-    redirect('/auth/signin')
-  }
+  const userId = await getDefaultUserId()
 
   // Get all projects
   const userProjects = await db
     .select()
     .from(projects)
-    .where(eq(projects.ownerId, session.user.id))
+    .where(eq(projects.ownerId, userId))
     .orderBy(desc(projects.updatedAt))
 
   // Get latest evaluation for each project

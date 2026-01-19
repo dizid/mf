@@ -1,7 +1,5 @@
 import { Suspense } from 'react'
-import { auth } from '@/lib/auth'
 import { TIERS, TierName } from '@/lib/stripe'
-import { getUserLimits } from '@/lib/limits'
 import { Card } from '@/components/ui/Card'
 import { PricingCard } from '@/components/PricingCard'
 import { PricingPageClient } from '@/components/PricingPageClient'
@@ -9,13 +7,8 @@ import { PricingPageClient } from '@/components/PricingPageClient'
 export const dynamic = 'force-dynamic'
 
 export default async function PricingPage() {
-  const session = await auth()
-  let currentTier: TierName = 'free'
-
-  if (session?.user?.id) {
-    const limits = await getUserLimits(session.user.id)
-    currentTier = limits.tier
-  }
+  // For simple password auth, we don't track tiers - everyone is "free"
+  const currentTier: TierName = 'free'
 
   return (
     <div className="p-4 pb-24">
@@ -42,7 +35,7 @@ export default async function PricingPage() {
               tierKey={tierKey}
               tier={tier}
               isCurrentTier={currentTier === tierKey}
-              isSignedIn={!!session?.user}
+              isSignedIn={true}
             />
           )
         )}

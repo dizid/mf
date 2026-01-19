@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { isAuthenticated, getDefaultUserId } from '@/lib/password-auth'
 import { db, projects, evaluations, type EvaluationNotes } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { computeAllScores } from '@/lib/scoring'
@@ -7,8 +7,7 @@ import { createEvaluationSchema, formatZodErrors } from '@/lib/validations'
 
 // POST /api/evaluate - Save an evaluation with manual scores
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({
       error: {
         code: 'UNAUTHORIZED',
@@ -18,6 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const userId = await getDefaultUserId()
     const body = await req.json()
 
     // Validate input
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       .insert(evaluations)
       .values({
         projectId,
-        evaluatorId: session.user.id,
+        evaluatorId: userId,
 
         // Product metrics
         scoreUsability: scores.usability,

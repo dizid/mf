@@ -13,6 +13,7 @@ export default function NewProjectPage() {
   const [error, setError] = useState('')
   const [upgradeRequired, setUpgradeRequired] = useState(false)
   const [upgradeMessage, setUpgradeMessage] = useState('')
+  const [autoEvaluate, setAutoEvaluate] = useState(true)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -44,9 +45,17 @@ export default function NewProjectPage() {
       }
 
       toast.success('Project created!', {
-        description: `${data.name} has been added to your portfolio.`,
+        description: autoEvaluate
+          ? 'Starting AI analysis...'
+          : `${data.name} has been added to your portfolio.`,
       })
-      router.push(`/projects/${data.id}`)
+
+      // Redirect to AI evaluation or project detail
+      if (autoEvaluate) {
+        router.push(`/projects/${data.id}/ai-evaluate`)
+      } else {
+        router.push(`/projects/${data.id}`)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       setError(message)
@@ -92,6 +101,27 @@ export default function NewProjectPage() {
           required
           autoComplete="off"
         />
+
+        {/* AI Auto-evaluate checkbox */}
+        <label className="flex items-start gap-3 p-4 bg-primary/5 rounded-xl cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoEvaluate}
+            onChange={(e) => setAutoEvaluate(e.target.checked)}
+            className="w-6 h-6 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <div>
+            <div className="font-medium text-gray-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Auto-evaluate with AI
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              AI will analyze your app and suggest scores. You&apos;ll add personal ratings after.
+            </p>
+          </div>
+        </label>
 
         {error && (
           <div className="bg-red-50 text-danger p-4 rounded-xl text-body">

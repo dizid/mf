@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { isAuthenticated, getDefaultUserId } from '@/lib/password-auth'
 import { stripe } from '@/lib/stripe'
 
 export async function POST() {
-  const session = await auth()
-  if (!session?.user?.id) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({
       error: {
         code: 'UNAUTHORIZED',
@@ -14,9 +13,11 @@ export async function POST() {
   }
 
   try {
+    const userId = await getDefaultUserId()
+
     // Find customer by userId metadata
     const customers = await stripe.customers.search({
-      query: `metadata['userId']:'${session.user.id}'`,
+      query: `metadata['userId']:'${userId}'`,
       limit: 1,
     })
 
@@ -34,7 +35,7 @@ export async function POST() {
     // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXTAUTH_URL}/pricing`,
+      return_url: `${process.env.AUTH_URL || 'http://localhost:3000'}/pricing`,
     })
 
     return NextResponse.json({ url: portalSession.url })

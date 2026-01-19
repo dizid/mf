@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { auth } from '@/lib/auth'
+import { isAuthenticated } from '@/lib/password-auth'
 import { BottomNav } from '@/components/BottomNav'
 import { Toaster } from 'sonner'
-import { getUserLimits } from '@/lib/limits'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,29 +25,15 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await auth()
-  const isAuthenticated = !!session?.user
-
-  // Get user tier for the nav menu
-  let tier = 'free'
-  if (session?.user?.id) {
-    try {
-      const limits = await getUserLimits(session.user.id)
-      tier = limits.tier
-    } catch {
-      // Stripe not configured - default to free
-    }
-  }
+  const authenticated = await isAuthenticated()
 
   return (
     <html lang="en">
-      <body className={`${inter.className} ${isAuthenticated ? 'bg-surface-dark pb-20' : 'bg-white'} min-h-screen`}>
-        <main className={isAuthenticated ? 'max-w-lg mx-auto' : ''}>
+      <body className={`${inter.className} ${authenticated ? 'bg-surface-dark pb-20' : 'bg-white'} min-h-screen`}>
+        <main className={authenticated ? 'max-w-lg mx-auto' : ''}>
           {children}
         </main>
-        {isAuthenticated && session?.user && (
-          <BottomNav user={session.user} tier={tier} />
-        )}
+        {authenticated && <BottomNav />}
         <Toaster
           position="top-center"
           toastOptions={{

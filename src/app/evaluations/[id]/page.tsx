@@ -1,8 +1,7 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { db, evaluations, projects } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { auth } from '@/lib/auth'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
 
@@ -14,10 +13,6 @@ interface Props {
 
 export default async function EvaluationDetailPage({ params }: Props) {
   const { id } = await params
-  const session = await auth()
-  if (!session?.user) {
-    redirect('/auth/signin')
-  }
 
   // Get evaluation
   const evaluation = await db
