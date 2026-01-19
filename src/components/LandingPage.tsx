@@ -1,7 +1,5 @@
 import Link from 'next/link'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { TIERS } from '@/lib/stripe'
 
 export function LandingPage() {
   return (
@@ -16,10 +14,11 @@ export function LandingPage() {
           <p className="text-lg text-gray-600 mb-8">
             Too many side projects, not enough time? App Rater helps you evaluate what to keep, kill, or double down on.
           </p>
-          <Link href="/auth/signin">
-            <Button size="large" className="w-full max-w-xs">
-              Get Started Free
-            </Button>
+          <Link
+            href="/auth/signin"
+            className="block mx-auto text-center font-semibold rounded-xl bg-primary text-white min-h-[64px] leading-[64px] px-8 text-lg max-w-xs"
+          >
+            Get Started Free
           </Link>
           <p className="text-sm text-gray-500 mt-3">
             No credit card required
@@ -205,10 +204,11 @@ export function LandingPage() {
           <p className="text-gray-600 mb-8">
             Join indie developers who use App Rater to make better portfolio decisions.
           </p>
-          <Link href="/auth/signin">
-            <Button size="large" className="w-full max-w-xs">
-              Start Rating Your Projects
-            </Button>
+          <Link
+            href="/auth/signin"
+            className="block mx-auto text-center font-semibold rounded-xl bg-primary text-white min-h-[64px] leading-[64px] px-8 text-lg max-w-xs"
+          >
+            Start Rating Your Projects
           </Link>
         </div>
       </section>
