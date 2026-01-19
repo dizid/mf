@@ -21,11 +21,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Check for API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.XAI_API_KEY) {
     return NextResponse.json({
       error: {
         code: 'CONFIGURATION_ERROR',
-        message: 'AI evaluation is not configured. Please set ANTHROPIC_API_KEY.',
+        message: 'AI evaluation is not configured. Please set XAI_API_KEY.',
       }
     }, { status: 500 })
   }
