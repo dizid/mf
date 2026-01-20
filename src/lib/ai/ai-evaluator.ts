@@ -39,6 +39,12 @@ export interface AIEvaluationResult {
     growth: string
     summary: string
   } | null
+  firstImpressions: {
+    whatItDoes: string
+    targetUser: string
+    trustLevel: 'low' | 'medium' | 'high'
+  } | null
+  recommendations: string[] | null
   pageSpeedData: {
     performance: number | null
     accessibility: number | null
@@ -130,6 +136,8 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
         growth: parsed.business.growth.reason,
         summary: parsed.summary,
       },
+      firstImpressions: parsed.firstImpressions,
+      recommendations: parsed.recommendations,
       pageSpeedData: {
         performance: pageSpeedData.performance,
         accessibility: pageSpeedData.accessibility,
@@ -148,6 +156,8 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
       success: false,
       scores: null,
       reasoning: null,
+      firstImpressions: null,
+      recommendations: null,
       pageSpeedData: null,
       error: error instanceof Error ? error.message : 'Unknown error during AI evaluation',
       tokenUsage: null,

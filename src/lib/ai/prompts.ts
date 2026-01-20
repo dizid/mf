@@ -3,20 +3,40 @@
 import type { ScrapedContent } from './scraper'
 import type { Competitor } from '../db/schema'
 
-export const SYSTEM_PROMPT = `You are an expert app evaluator helping indie developers and solopreneurs assess their web applications objectively. You analyze websites and provide scores on a 1-10 scale.
+export const SYSTEM_PROMPT = `You are an expert product reviewer evaluating web applications.
+Think like a real human visiting this site for the first time.
 
-Scoring Guidelines:
-- 1-3: Poor - fundamental problems, missing basics
-- 4-5: Below average - functional but significant gaps
-- 6-7: Good - solid implementation, minor improvements needed
-- 8-9: Very good - well executed, stands out
-- 10: Exceptional - best in class
+## Your Evaluation Approach
 
-Important:
-- Be honest and constructive. Indie apps should be judged fairly for their scope and stage.
-- Consider the target audience when evaluating.
-- Provide brief, actionable reasoning for each score.
-- Return ONLY valid JSON, no additional text or markdown.`
+**1. FIRST IMPRESSIONS (5-second test)**
+- What do you immediately understand about this product?
+- Is the purpose instantly clear?
+- Does it feel trustworthy and professional?
+
+**2. USABILITY WALKTHROUGH**
+- Can a new user figure out what to do without instructions?
+- Are CTAs clear and compelling?
+- Is navigation intuitive or confusing?
+
+**3. PRODUCT-MARKET FIT**
+- Who specifically needs this?
+- How urgent is the problem it solves?
+- Is the value proposition compelling?
+
+**4. TRUST & CREDIBILITY**
+- Does it look professional and maintained?
+- Are there trust signals (testimonials, logos, security)?
+- Would you enter payment info here?
+
+## Scoring Guidelines
+- 1-3: Fundamental problems - confusing, untrustworthy, unclear purpose
+- 4-5: Functional but significant UX/clarity gaps
+- 6-7: Good execution, minor friction points
+- 8-9: Excellent - clear, trustworthy, compelling
+- 10: Best in class
+
+Be honest and specific. Avoid generic feedback.
+Return ONLY valid JSON, no markdown.`
 
 export interface EvaluationInput {
   projectName: string
@@ -83,6 +103,13 @@ ${issuesText}
 - Has Login/Auth: ${scrapedContent.hasLogin ? 'Yes' : 'No'}
 - Technologies: ${techText}
 
+## UX Signals
+- CTAs Found: ${scrapedContent.ctas?.length ? scrapedContent.ctas.slice(0, 5).join(', ') : 'None detected'}
+- Social Proof: ${scrapedContent.hasSocialProof ? 'Yes (testimonials/reviews present)' : 'No'}
+- Security Badges: ${scrapedContent.hasSecurityBadges ? 'Yes' : 'No'}
+- Video Content: ${scrapedContent.hasVideo ? 'Yes' : 'No'}
+- FAQ Section: ${scrapedContent.hasFaq ? 'Yes' : 'No'}
+
 ## Headings Found
 ${scrapedContent.headings.slice(0, 10).join('\n') || 'None found'}
 
@@ -91,24 +118,41 @@ ${scrapedContent.mainContent.substring(0, 3000) || 'Could not extract content'}
 
 ---
 
-## Your Task
-Evaluate this web application on the following 9 metrics. For each metric, provide a score (1-10) and a brief reason (1 sentence).
+## Step 1: First Impressions
+
+Before scoring, capture your immediate reaction (5-second test):
+- What does this product do? (one sentence)
+- Who is it for? (specific persona)
+- Trust level: Would you enter your email? Credit card?
+
+## Step 2: Score Each Metric
+
+Evaluate on these 9 metrics (1-10 with brief reason):
 
 **Product Metrics:**
-1. usability - How easy is it to use? Consider navigation, clarity, learning curve.
-2. value - Does it solve a real problem? How compelling is the value proposition?
-3. features - How complete is the feature set for its stated purpose?
-4. polish - What's the quality level? Consider design, errors, loading states.
-5. competition - How does it compare to alternatives? Is there a clear differentiator?
+1. usability - Can a new user accomplish the core task without confusion? Consider first-time experience, cognitive load, clarity of next steps.
+2. value - Is it immediately clear what problem this solves and why it matters? Would you pay for this?
+3. features - Does it have what's needed to deliver on its promise? Not feature-count, but the right features.
+4. polish - Does it feel finished? Professional design, smooth interactions, no errors or rough edges.
+5. competition - What makes this different from alternatives? Is the differentiator clear and compelling?
 
 **Business Metrics:**
-6. market - How big is the potential market? Consider the target audience size.
-7. monetization - Can this make money? Look for pricing, payment integrations, premium features.
-8. maintenance - How much effort to maintain? Consider complexity, dependencies (1=easy, 10=high effort).
-9. growth - Can it scale and grow? Look for viral features, sharing, network effects.
+6. market - Is there a real, reachable audience who would want this? How badly do they need it?
+7. monetization - Is there a clear path to revenue? Pricing visible? Value justifies cost?
+8. maintenance - How complex would this be to maintain? (1=simple, 10=very complex infrastructure).
+9. growth - Are there natural ways for this to spread? Word-of-mouth, viral loops, network effects?
+
+## Step 3: Recommendations
+
+Provide 3 specific, actionable improvements that would have the biggest impact.
 
 Return your evaluation as JSON in this exact format:
 {
+  "firstImpressions": {
+    "whatItDoes": "One sentence description of the product",
+    "targetUser": "Specific persona who needs this",
+    "trustLevel": "low" | "medium" | "high"
+  },
   "product": {
     "usability": { "score": <1-10>, "reason": "..." },
     "value": { "score": <1-10>, "reason": "..." },
@@ -122,12 +166,18 @@ Return your evaluation as JSON in this exact format:
     "maintenance": { "score": <1-10>, "reason": "..." },
     "growth": { "score": <1-10>, "reason": "..." }
   },
+  "recommendations": ["Specific improvement 1", "Specific improvement 2", "Specific improvement 3"],
   "summary": "2-3 sentence overall assessment with key strengths and areas for improvement"
 }`
 }
 
 // Type for the expected JSON response
 export interface AIEvaluationResponse {
+  firstImpressions: {
+    whatItDoes: string
+    targetUser: string
+    trustLevel: 'low' | 'medium' | 'high'
+  }
   product: {
     usability: { score: number; reason: string }
     value: { score: number; reason: string }
@@ -141,6 +191,7 @@ export interface AIEvaluationResponse {
     maintenance: { score: number; reason: string }
     growth: { score: number; reason: string }
   }
+  recommendations: string[]
   summary: string
 }
 
@@ -149,6 +200,13 @@ export function validateEvaluationResponse(data: unknown): data is AIEvaluationR
   if (typeof data !== 'object' || data === null) return false
 
   const d = data as Record<string, unknown>
+
+  // Check firstImpressions
+  if (typeof d.firstImpressions !== 'object' || d.firstImpressions === null) return false
+  const fi = d.firstImpressions as Record<string, unknown>
+  if (typeof fi.whatItDoes !== 'string') return false
+  if (typeof fi.targetUser !== 'string') return false
+  if (!['low', 'medium', 'high'].includes(fi.trustLevel as string)) return false
 
   // Check product metrics
   if (typeof d.product !== 'object' || d.product === null) return false
@@ -164,6 +222,13 @@ export function validateEvaluationResponse(data: unknown): data is AIEvaluationR
   const businessKeys = ['market', 'monetization', 'maintenance', 'growth']
   for (const key of businessKeys) {
     if (!isValidMetric(business[key])) return false
+  }
+
+  // Check recommendations
+  if (!Array.isArray(d.recommendations)) return false
+  if (d.recommendations.length === 0) return false
+  for (const rec of d.recommendations) {
+    if (typeof rec !== 'string') return false
   }
 
   // Check summary

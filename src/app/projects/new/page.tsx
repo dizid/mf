@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -142,6 +143,16 @@ export default function NewProjectPage() {
           </Button>
         )}
       </form>
+
+      {/* Batch add link */}
+      <div className="mt-8 text-center">
+        <p className="text-sm text-gray-500">
+          Have multiple sites?{' '}
+          <Link href="/projects/batch" className="text-primary font-medium hover:underline">
+            Add them all at once
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

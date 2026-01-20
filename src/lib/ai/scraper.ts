@@ -8,6 +8,12 @@ export interface ScrapedContent {
   hasPricing: boolean
   hasLogin: boolean
   technologies: string[]
+  // UX signal detection
+  ctas: string[]
+  hasSocialProof: boolean
+  hasSecurityBadges: boolean
+  hasVideo: boolean
+  hasFaq: boolean
   error: string | null
 }
 
@@ -37,6 +43,11 @@ export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
         hasPricing: false,
         hasLogin: false,
         technologies: [],
+        ctas: [],
+        hasSocialProof: false,
+        hasSecurityBadges: false,
+        hasVideo: false,
+        hasFaq: false,
         error: `HTTP ${response.status}: ${response.statusText}`,
       }
     }
@@ -52,6 +63,11 @@ export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
       hasPricing: false,
       hasLogin: false,
       technologies: [],
+      ctas: [],
+      hasSocialProof: false,
+      hasSecurityBadges: false,
+      hasVideo: false,
+      hasFaq: false,
       error: error instanceof Error ? error.message : 'Failed to fetch website',
     }
   }
@@ -129,6 +145,38 @@ function parseHtml(html: string): ScrapedContent {
   if (html.includes('intercom')) technologies.push('Intercom')
   if (html.includes('google-analytics') || html.includes('gtag')) technologies.push('Google Analytics')
 
+  // Extract CTAs (buttons and prominent links)
+  const ctas: string[] = []
+  const buttonMatches = html.matchAll(/<button[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/button>/gi)
+  for (const match of buttonMatches) {
+    const text = stripHtml(match[1]).trim()
+    if (text && text.length < 50 && text.length > 1) {
+      ctas.push(text)
+    }
+  }
+  // Also check for links with CTA-like classes
+  const ctaLinkMatches = html.matchAll(/<a[^>]*(?:class=["'][^"']*(?:btn|button|cta)[^"']*["'])[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/a>/gi)
+  for (const match of ctaLinkMatches) {
+    const text = stripHtml(match[1]).trim()
+    if (text && text.length < 50 && text.length > 1) {
+      ctas.push(text)
+    }
+  }
+
+  // Detect social proof (testimonials, reviews, customer logos)
+  const socialProofKeywords = /testimonial|review|customer|client|trusted\s+by|used\s+by|companies\s+use|loved\s+by|\d+\s*\+?\s*(?:users|customers|companies)|rating|stars/i
+  const hasSocialProof = socialProofKeywords.test(html)
+
+  // Detect security badges
+  const securityKeywords = /ssl|secure|encrypted|pci\s*compliant|gdpr|soc\s*2|256[\-\s]?bit|https|verified|trust(?:ed)?[\s\-]?(?:site|badge|seal)/i
+  const hasSecurityBadges = securityKeywords.test(html)
+
+  // Detect video embeds
+  const hasVideo = /youtube\.com|vimeo\.com|<video|wistia\.com|loom\.com/i.test(html)
+
+  // Detect FAQ section
+  const hasFaq = /faq|frequently\s+asked|common\s+questions/i.test(html)
+
   return {
     title,
     metaDescription,
@@ -137,6 +185,11 @@ function parseHtml(html: string): ScrapedContent {
     hasPricing,
     hasLogin,
     technologies,
+    ctas: ctas.slice(0, 10), // Limit to 10 CTAs
+    hasSocialProof,
+    hasSecurityBadges,
+    hasVideo,
+    hasFaq,
     error: null,
   }
 }

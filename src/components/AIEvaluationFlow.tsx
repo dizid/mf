@@ -38,6 +38,12 @@ interface AIReasoning {
   summary: string
 }
 
+interface FirstImpressions {
+  whatItDoes: string
+  targetUser: string
+  trustLevel: 'low' | 'medium' | 'high'
+}
+
 const personalMetrics = ['passion', 'learning', 'pride'] as const
 type PersonalMetric = typeof personalMetrics[number]
 
@@ -50,6 +56,8 @@ export function AIEvaluationFlow({ projectId, projectName }: AIEvaluationFlowPro
   // AI-generated scores
   const [aiScores, setAiScores] = useState<AIScores | null>(null)
   const [aiReasoning, setAiReasoning] = useState<AIReasoning | null>(null)
+  const [firstImpressions, setFirstImpressions] = useState<FirstImpressions | null>(null)
+  const [recommendations, setRecommendations] = useState<string[] | null>(null)
 
   // Personal scores (user-provided)
   const [personalScores, setPersonalScores] = useState<Record<PersonalMetric, number | null>>({
@@ -100,11 +108,66 @@ export function AIEvaluationFlow({ projectId, projectName }: AIEvaluationFlowPro
 
       setAiScores(data.scores)
       setAiReasoning(data.reasoning)
+      setFirstImpressions(data.firstImpressions)
+      setRecommendations(data.recommendations)
       setStep('review')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       setError(message)
       toast.error('AI Evaluation Failed', { description: message })
+    }
+  }
+
+  // Save with neutral default personal scores (5/10)
+  async function saveWithDefaults() {
+    setPersonalScores({ passion: 5, learning: 5, pride: 5 })
+    setStep('saving')
+
+    try {
+      const allScores = {
+        ...aiScores,
+        passion: 5,
+        learning: 5,
+        pride: 5,
+      }
+
+      const res = await fetch('/api/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          scores: allScores,
+          notes: {
+            usability: aiReasoning?.usability,
+            value: aiReasoning?.value,
+            features: aiReasoning?.features,
+            polish: aiReasoning?.polish,
+            competition: aiReasoning?.competition,
+            market: aiReasoning?.market,
+            monetization: aiReasoning?.monetization,
+            maintenance: aiReasoning?.maintenance,
+            growth: aiReasoning?.growth,
+          },
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error?.message || 'Failed to save')
+      }
+
+      const evaluation = await res.json()
+      toast.success(`Recommendation: ${evaluation.recommendation?.toUpperCase()}`, {
+        description: `Overall score: ${Number(evaluation.overallScore).toFixed(1)}/10`,
+      })
+
+      router.push(`/projects/${projectId}`)
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong'
+      setError(message)
+      toast.error('Failed to save', { description: message })
+      setStep('review')
     }
   }
 
@@ -211,6 +274,27 @@ export function AIEvaluationFlow({ projectId, projectName }: AIEvaluationFlowPro
         </div>
 
         <div className="flex-1 p-4 overflow-y-auto">
+          {/* First Impressions */}
+          {firstImpressions && (
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+              <h3 className="text-label font-semibold text-blue-800 mb-3">FIRST IMPRESSIONS</h3>
+              <div className="space-y-2 text-sm">
+                <p><span className="font-medium text-gray-700">What it does:</span> <span className="text-gray-600">{firstImpressions.whatItDoes}</span></p>
+                <p><span className="font-medium text-gray-700">Target user:</span> <span className="text-gray-600">{firstImpressions.targetUser}</span></p>
+                <p>
+                  <span className="font-medium text-gray-700">Trust level:</span>{' '}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    firstImpressions.trustLevel === 'high' ? 'bg-green-100 text-green-800' :
+                    firstImpressions.trustLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {firstImpressions.trustLevel}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Summary */}
           <div className="bg-primary/5 p-4 rounded-xl mb-6">
             <p className="text-body text-gray-700">{aiReasoning?.summary}</p>
@@ -246,11 +330,35 @@ export function AIEvaluationFlow({ projectId, projectName }: AIEvaluationFlowPro
               ))}
             </div>
           </div>
+
+          {/* Recommendations */}
+          {recommendations && recommendations.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl mb-6">
+              <h3 className="text-label font-semibold text-amber-800 mb-3">TOP RECOMMENDATIONS</h3>
+              <ul className="space-y-2">
+                {recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex gap-2 text-sm text-gray-700">
+                    <span className="flex-shrink-0 w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center text-xs font-bold text-amber-800">
+                      {idx + 1}
+                    </span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
-        <div className="p-4 border-t border-gray-100 safe-bottom">
+        <div className="p-4 border-t border-gray-100 safe-bottom space-y-3">
           <Button onClick={() => setStep('personal')} className="w-full">
             Continue to Personal Ratings
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={saveWithDefaults}
+            className="w-full"
+          >
+            Skip & Save Now
           </Button>
         </div>
       </div>

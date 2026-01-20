@@ -80,6 +80,8 @@ export async function POST(req: NextRequest) {
       success: true,
       scores: evaluation.scores,
       reasoning: evaluation.reasoning,
+      firstImpressions: evaluation.firstImpressions,
+      recommendations: evaluation.recommendations,
       pageSpeedData: evaluation.pageSpeedData,
       tokenUsage: evaluation.tokenUsage,
     })
