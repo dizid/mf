@@ -49,7 +49,7 @@ function computeActionItems(
         projectId: project.id,
         projectName: project.name,
         message: 'Needs initial rating',
-        href: `/projects/${project.id}/rate`,
+        href: `/projects/${project.id}/ai-evaluate`,
       })
       continue
     }
@@ -76,7 +76,7 @@ function computeActionItems(
         projectId: project.id,
         projectName: project.name,
         message: `Last rated ${daysAgo} days ago`,
-        href: `/projects/${project.id}/rate`,
+        href: `/projects/${project.id}/ai-evaluate`,
       })
     }
   }

@@ -107,11 +107,6 @@ export default async function ProjectDetailPage({ params }: Props) {
             </span>
           </Button>
         </Link>
-        <Link href={`/projects/${id}/rate`}>
-          <Button size="large" variant="secondary" className="w-full">
-            {hasEvaluation ? 'Manual Re-evaluate' : 'Manual Rate'}
-          </Button>
-        </Link>
       </div>
 
       {/* Score Breakdown */}
@@ -125,7 +120,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         <div className="bg-gray-50 rounded-xl p-6 text-center">
           <p className="text-body text-gray-500 mb-2">No evaluation yet</p>
           <p className="text-label text-gray-400">
-            Use AI Evaluate for automatic analysis or Manual Rate for custom scoring
+            Use AI Evaluate for automatic analysis of your project
           </p>
         </div>
       )}
