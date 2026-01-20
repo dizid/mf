@@ -5,6 +5,11 @@
 
 # Testing
 /coverage
+/playwright-report/
+/test-results/
+
+# Claude Code
+.claude/
 
 # Next.js
 /.next/

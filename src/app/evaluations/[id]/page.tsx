@@ -4,6 +4,8 @@ import { db, evaluations, projects } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { RecommendationBadge } from '@/components/RecommendationBadge'
+import { CopyForAIButton } from '@/components/CopyForAIButton'
+import { formatEvaluationForAI } from '@/lib/export-evaluation'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +83,16 @@ export default async function EvaluationDetailPage({ params }: Props) {
 
       {/* Score Breakdown */}
       <ScoreBreakdown evaluation={evaluation} />
+
+      {/* Copy for AI */}
+      {project && (
+        <div className="mt-6">
+          <CopyForAIButton
+            content={formatEvaluationForAI(evaluation, project)}
+            className="w-full justify-center"
+          />
+        </div>
+      )}
     </div>
   )
 }

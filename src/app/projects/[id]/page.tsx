@@ -7,6 +7,8 @@ import { RecommendationBadge } from '@/components/RecommendationBadge'
 import { Button } from '@/components/ui/Button'
 import { ScoreDelta } from '@/components/ScoreDelta'
 import { ImprovementSuggestions } from '@/components/ImprovementSuggestions'
+import { CopyForAIButton } from '@/components/CopyForAIButton'
+import { formatEvaluationForAI } from '@/lib/export-evaluation'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,6 +116,16 @@ export default async function ProjectDetailPage({ params }: Props) {
 
       {/* Improvement Suggestions */}
       {latestEval && <ImprovementSuggestions evaluation={latestEval} />}
+
+      {/* Copy for AI */}
+      {latestEval && (
+        <div className="mt-6">
+          <CopyForAIButton
+            content={formatEvaluationForAI(latestEval, project)}
+            className="w-full justify-center"
+          />
+        </div>
+      )}
 
       {/* No evaluation message */}
       {!hasEvaluation && (

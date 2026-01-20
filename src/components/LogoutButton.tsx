@@ -17,7 +17,7 @@ export function LogoutButton() {
       className="flex flex-col items-center justify-center min-h-touch py-2 px-4 text-gray-500"
     >
       <LogOutIcon className="w-6 h-6 mb-1" />
-      <span className="text-xs font-medium">Logout</span>
+      <span className="text-label font-medium">Logout</span>
     </button>
   )
 }
