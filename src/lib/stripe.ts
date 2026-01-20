@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 
-// Server-side Stripe client (lazy initialization to handle build time)
+// Server-side Stripe client (lazy initialization)
 let stripeInstance: Stripe | null = null
 
 export function getStripe(): Stripe {
@@ -16,16 +16,7 @@ export function getStripe(): Stripe {
   return stripeInstance
 }
 
-// For backwards compatibility - use getStripe() for new code
-export const stripe = {
-  get customers() { return getStripe().customers },
-  get subscriptions() { return getStripe().subscriptions },
-  get checkout() { return getStripe().checkout },
-  get billingPortal() { return getStripe().billingPortal },
-  get webhooks() { return getStripe().webhooks },
-}
-
-// Subscription tier definitions
+// Simple tier definitions: Free vs Pro
 export const TIERS = {
   free: {
     name: 'Free',
@@ -46,93 +37,21 @@ export const TIERS = {
   pro: {
     name: 'Pro',
     price: 9,
-    priceId: process.env.STRIPE_PRO_PRICE_ID,
+    priceId: process.env.STRIPE_PRO_PRICE_ID || null,
     limits: {
       projects: 25,
-      evaluationsPerProject: Infinity,
-      compareProjects: 5,
-    },
-    features: [
-      'Up to 25 projects',
-      'Unlimited evaluations',
-      'Compare up to 5 projects',
-      'Export to CSV',
-      'Priority support',
-    ],
-  },
-  team: {
-    name: 'Team',
-    price: 29,
-    priceId: process.env.STRIPE_TEAM_PRICE_ID,
-    limits: {
-      projects: Infinity,
       evaluationsPerProject: Infinity,
       compareProjects: 10,
     },
     features: [
-      'Unlimited projects',
+      'Up to 25 projects',
       'Unlimited evaluations',
       'Compare up to 10 projects',
-      'Export to CSV & JSON',
-      'API access',
-      'Up to 5 team members',
+      'Export to CSV',
+      'Priority support',
     ],
   },
 } as const
 
 export type TierName = keyof typeof TIERS
 export type Tier = typeof TIERS[TierName]
-
-// Get user's subscription tier from Stripe
-export async function getUserTier(stripeCustomerId: string | null): Promise<TierName> {
-  if (!stripeCustomerId) return 'free'
-
-  try {
-    const subscriptions = await stripe.subscriptions.list({
-      customer: stripeCustomerId,
-      status: 'active',
-      limit: 1,
-    })
-
-    if (subscriptions.data.length === 0) return 'free'
-
-    const subscription = subscriptions.data[0]
-    const priceId = subscription.items.data[0]?.price.id
-
-    if (priceId === TIERS.team.priceId) return 'team'
-    if (priceId === TIERS.pro.priceId) return 'pro'
-
-    return 'free'
-  } catch (error) {
-    console.error('Error fetching subscription:', error)
-    return 'free'
-  }
-}
-
-// Create or get Stripe customer for user
-export async function getOrCreateStripeCustomer(
-  userId: string,
-  email: string,
-  name?: string | null
-): Promise<string> {
-  // Search for existing customer by metadata
-  const existingCustomers = await stripe.customers.search({
-    query: `metadata['userId']:'${userId}'`,
-    limit: 1,
-  })
-
-  if (existingCustomers.data.length > 0) {
-    return existingCustomers.data[0].id
-  }
-
-  // Create new customer
-  const customer = await stripe.customers.create({
-    email,
-    name: name || undefined,
-    metadata: {
-      userId,
-    },
-  })
-
-  return customer.id
-}

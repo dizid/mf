@@ -62,3 +62,15 @@ export async function getDefaultUserId(): Promise<string> {
 
   return newUser.id
 }
+
+// Check if the current user has Pro subscription
+export async function isProUser(): Promise<boolean> {
+  const user = await db
+    .select({ isProUser: users.isProUser })
+    .from(users)
+    .where(eq(users.email, DEFAULT_USER_EMAIL))
+    .limit(1)
+    .then(rows => rows[0])
+
+  return user?.isProUser === 1
+}

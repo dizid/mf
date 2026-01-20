@@ -117,8 +117,10 @@ export function calculateRecommendation(scores: Scores): Recommendation {
     return 'keep'
   }
 
-  // 🔄 PIVOT: Good technical foundation but low value/market fit
-  if ((productScore ?? 0) >= 6 && valueScore < 5) {
+  // 🔄 PIVOT: Good technical foundation but mediocre value (not meeting KEEP criteria)
+  // Note: value <= 5 catches cases where product is good but value isn't great
+  // and maintenance is too high for KEEP (which requires maintenance <= 4)
+  if ((productScore ?? 0) >= 6 && valueScore <= 5) {
     return 'pivot'
   }
 

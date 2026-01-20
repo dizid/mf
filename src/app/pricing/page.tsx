@@ -3,12 +3,14 @@ import { TIERS, TierName } from '@/lib/stripe'
 import { Card } from '@/components/ui/Card'
 import { PricingCard } from '@/components/PricingCard'
 import { PricingPageClient } from '@/components/PricingPageClient'
+import { isProUser } from '@/lib/password-auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PricingPage() {
-  // For simple password auth, we don't track tiers - everyone is "free"
-  const currentTier: TierName = 'free'
+  // Check actual Pro status from database
+  const isPro = await isProUser()
+  const currentTier: TierName = isPro ? 'pro' : 'free'
 
   return (
     <div className="p-4 pb-24">

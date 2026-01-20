@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
+import { db, users } from '@/lib/db'
+import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
 
-// Disable body parsing - we need raw body for webhook verification
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
@@ -10,11 +11,10 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('stripe-signature')
 
   if (!signature) {
-    return NextResponse.json({
-      error: { code: 'VALIDATION_ERROR', message: 'Missing signature' }
-    }, { status: 400 })
+    return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
   }
 
+  const stripe = getStripe()
   let event: Stripe.Event
 
   try {
@@ -24,73 +24,56 @@ export async function POST(req: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('Webhook signature verification failed:', message)
-    return NextResponse.json({
-      error: { code: 'VALIDATION_ERROR', message: 'Invalid signature' }
-    }, { status: 400 })
+    console.error('Webhook signature verification failed:', err)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  // Handle the event
   try {
     switch (event.type) {
+      // User completed checkout - activate Pro
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        console.log('Checkout completed:', {
-          customerId: session.customer,
-          subscriptionId: session.subscription,
-          userId: session.metadata?.userId,
-          tier: session.metadata?.tier,
-        })
-        // Subscription is automatically active after checkout
-        // No additional action needed since we query Stripe directly
+        const customerId = session.customer as string
+
+        if (customerId) {
+          await db
+            .update(users)
+            .set({ isProUser: 1 })
+            .where(eq(users.stripeCustomerId, customerId))
+
+          console.log('Pro activated for customer:', customerId)
+        }
         break
       }
 
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription
-        console.log('Subscription updated:', {
-          id: subscription.id,
-          status: subscription.status,
-          customerId: subscription.customer,
-        })
-        // We query Stripe directly for subscription status
-        // so no additional action needed
-        break
-      }
-
+      // Subscription canceled - deactivate Pro
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
-        console.log('Subscription canceled:', {
-          id: subscription.id,
-          customerId: subscription.customer,
-        })
-        // User will automatically fall back to free tier
-        // since we query Stripe directly
+        const customerId = subscription.customer as string
+
+        await db
+          .update(users)
+          .set({ isProUser: 0 })
+          .where(eq(users.stripeCustomerId, customerId))
+
+        console.log('Pro deactivated for customer:', customerId)
         break
       }
 
+      // Payment failed - could notify user (optional)
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
-        console.log('Payment failed:', {
-          invoiceId: invoice.id,
-          customerId: invoice.customer,
-          attemptCount: invoice.attempt_count,
-        })
-        // Stripe handles retry logic automatically
-        // Consider sending email notification to user
+        console.log('Payment failed for customer:', invoice.customer)
         break
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        console.log('Unhandled event:', event.type)
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Error processing webhook:', error)
-    return NextResponse.json({
-      error: { code: 'SERVER_ERROR', message: 'Webhook handler failed' }
-    }, { status: 500 })
+    console.error('Webhook handler error:', error)
+    return NextResponse.json({ error: 'Handler failed' }, { status: 500 })
   }
 }

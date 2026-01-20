@@ -1,4 +1,7 @@
 // Website content scraper for AI evaluation
+// Uses Firecrawl for JS-rendered content (SPAs), falls back to plain fetch
+
+import FirecrawlApp from '@mendable/firecrawl-js'
 
 export interface ScrapedContent {
   title: string | null
@@ -8,7 +11,6 @@ export interface ScrapedContent {
   hasPricing: boolean
   hasLogin: boolean
   technologies: string[]
-  // UX signal detection
   ctas: string[]
   hasSocialProof: boolean
   hasSecurityBadges: boolean
@@ -17,10 +19,102 @@ export interface ScrapedContent {
   error: string | null
 }
 
-// Fetch and extract content from a URL
-export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
+// Empty result helper
+function emptyResult(error: string): ScrapedContent {
+  return {
+    title: null,
+    metaDescription: null,
+    headings: [],
+    mainContent: '',
+    hasPricing: false,
+    hasLogin: false,
+    technologies: [],
+    ctas: [],
+    hasSocialProof: false,
+    hasSecurityBadges: false,
+    hasVideo: false,
+    hasFaq: false,
+    error,
+  }
+}
+
+// Try Firecrawl first (renders JS for SPAs)
+async function scrapeWithFirecrawl(url: string): Promise<ScrapedContent | null> {
+  const apiKey = process.env.FIRECRAWL_API_KEY
+  if (!apiKey) {
+    console.log('FIRECRAWL_API_KEY not set, skipping Firecrawl')
+    return null
+  }
+
   try {
-    // Fetch the page with a reasonable timeout
+    console.log('Scraping with Firecrawl (JS rendering)...')
+    const firecrawl = new FirecrawlApp({ apiKey })
+
+    const result = await firecrawl.scrape(url, {
+      formats: ['markdown', 'html'],
+      timeout: 30000,
+    })
+
+    // New API returns document directly, throws on error
+    const markdown = result.markdown || ''
+    const html = result.html || ''
+    const metadata = result.metadata || {}
+
+    console.log(`Firecrawl scraped ${markdown.length} chars`)
+
+    // Extract headings from markdown (# lines)
+    const headings: string[] = []
+    const headingMatches = markdown.matchAll(/^#{1,3}\s+(.+)$/gm)
+    for (const match of headingMatches) {
+      const text = match[1].trim()
+      if (text && text.length < 200) {
+        headings.push(text)
+      }
+    }
+
+    // Clean markdown content
+    let mainContent = markdown
+      .replace(/^#{1,6}\s+/gm, '') // Remove heading markers
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert links to text
+      .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, '$1') // Remove bold/italic
+      .replace(/`[^`]+`/g, '') // Remove inline code
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/\n{3,}/g, '\n\n') // Normalize newlines
+      .trim()
+
+    // Limit content length
+    if (mainContent.length > 6000) {
+      mainContent = mainContent.substring(0, 6000) + '...'
+    }
+
+    // Detect features from both markdown and HTML
+    const combined = markdown + ' ' + html
+
+    return {
+      title: metadata.title || null,
+      metaDescription: metadata.description || null,
+      headings: headings.slice(0, 20),
+      mainContent,
+      hasPricing: /pricing|price|cost|subscription|plan|tier|monthly|annually|\$\d+|€\d+|£\d+/i.test(combined),
+      hasLogin: /sign\s*in|log\s*in|sign\s*up|create\s*account|register|auth/i.test(combined),
+      technologies: detectTechnologies(html),
+      ctas: extractCtas(html),
+      hasSocialProof: /testimonial|review|customer|client|trusted\s+by|used\s+by|companies\s+use|loved\s+by|\d+\s*\+?\s*(?:users|customers|companies)|rating|stars/i.test(combined),
+      hasSecurityBadges: /ssl|secure|encrypted|pci\s*compliant|gdpr|soc\s*2|256[\-\s]?bit|https|verified|trust(?:ed)?[\s\-]?(?:site|badge|seal)/i.test(combined),
+      hasVideo: /youtube\.com|vimeo\.com|<video|wistia\.com|loom\.com/i.test(combined),
+      hasFaq: /faq|frequently\s+asked|common\s+questions/i.test(combined),
+      error: null,
+    }
+  } catch (error) {
+    console.error('Firecrawl error:', error)
+    return null
+  }
+}
+
+// Fallback: plain fetch (doesn't render JS)
+async function scrapeWithFetch(url: string): Promise<ScrapedContent> {
+  try {
+    console.log('Scraping with plain fetch (no JS rendering)...')
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
@@ -35,103 +129,30 @@ export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      return {
-        title: null,
-        metaDescription: null,
-        headings: [],
-        mainContent: '',
-        hasPricing: false,
-        hasLogin: false,
-        technologies: [],
-        ctas: [],
-        hasSocialProof: false,
-        hasSecurityBadges: false,
-        hasVideo: false,
-        hasFaq: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      }
+      return emptyResult(`HTTP ${response.status}: ${response.statusText}`)
     }
 
     const html = await response.text()
     return parseHtml(html)
   } catch (error) {
-    return {
-      title: null,
-      metaDescription: null,
-      headings: [],
-      mainContent: '',
-      hasPricing: false,
-      hasLogin: false,
-      technologies: [],
-      ctas: [],
-      hasSocialProof: false,
-      hasSecurityBadges: false,
-      hasVideo: false,
-      hasFaq: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch website',
-    }
+    return emptyResult(error instanceof Error ? error.message : 'Failed to fetch website')
   }
 }
 
-// Parse HTML and extract relevant content
-function parseHtml(html: string): ScrapedContent {
-  // Extract title
-  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i)
-  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : null
-
-  // Extract meta description
-  const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i)
-    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i)
-  const metaDescription = metaDescMatch ? decodeHtmlEntities(metaDescMatch[1].trim()) : null
-
-  // Extract headings (h1, h2, h3)
-  const headingMatches = html.matchAll(/<h[123][^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/h[123]>/gi)
-  const headings: string[] = []
-  for (const match of headingMatches) {
-    const text = stripHtml(match[1]).trim()
-    if (text && text.length < 200) {
-      headings.push(text)
-    }
+// Main scrape function - tries Firecrawl first, falls back to fetch
+export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
+  // Try Firecrawl first (renders JS)
+  const firecrawlResult = await scrapeWithFirecrawl(url)
+  if (firecrawlResult) {
+    return firecrawlResult
   }
 
-  // Remove script, style, nav, footer, header tags for main content
-  let cleanHtml = html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  // Fall back to plain fetch
+  return scrapeWithFetch(url)
+}
 
-  // Extract main content area if present
-  const mainMatch = cleanHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i)
-    || cleanHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i)
-    || cleanHtml.match(/<div[^>]*(?:id|class)=["'][^"']*(?:content|main|app)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)
-
-  const contentHtml = mainMatch ? mainMatch[1] : cleanHtml
-
-  // Strip HTML tags and clean up whitespace
-  let mainContent = stripHtml(contentHtml)
-  mainContent = mainContent
-    .replace(/\s+/g, ' ')
-    .replace(/\n\s*\n/g, '\n')
-    .trim()
-
-  // Limit content length for API
-  if (mainContent.length > 6000) {
-    mainContent = mainContent.substring(0, 6000) + '...'
-  }
-
-  // Detect pricing indicators
-  const pricingKeywords = /pricing|price|cost|subscription|plan|tier|monthly|annually|\$\d+|€\d+|£\d+/i
-  const hasPricing = pricingKeywords.test(html)
-
-  // Detect login/auth indicators
-  const loginKeywords = /sign\s*in|log\s*in|sign\s*up|create\s*account|register|auth/i
-  const hasLogin = loginKeywords.test(html)
-
-  // Detect technologies from common patterns
+// Detect technologies from HTML
+function detectTechnologies(html: string): string[] {
   const technologies: string[] = []
   if (html.includes('__NEXT_DATA__') || html.includes('_next/')) technologies.push('Next.js')
   if (html.includes('__NUXT__') || html.includes('/_nuxt/')) technologies.push('Nuxt')
@@ -144,8 +165,11 @@ function parseHtml(html: string): ScrapedContent {
   if (html.includes('stripe')) technologies.push('Stripe')
   if (html.includes('intercom')) technologies.push('Intercom')
   if (html.includes('google-analytics') || html.includes('gtag')) technologies.push('Google Analytics')
+  return technologies
+}
 
-  // Extract CTAs (buttons and prominent links)
+// Extract CTAs from HTML
+function extractCtas(html: string): string[] {
   const ctas: string[] = []
   const buttonMatches = html.matchAll(/<button[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/button>/gi)
   for (const match of buttonMatches) {
@@ -154,7 +178,6 @@ function parseHtml(html: string): ScrapedContent {
       ctas.push(text)
     }
   }
-  // Also check for links with CTA-like classes
   const ctaLinkMatches = html.matchAll(/<a[^>]*(?:class=["'][^"']*(?:btn|button|cta)[^"']*["'])[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/a>/gi)
   for (const match of ctaLinkMatches) {
     const text = stripHtml(match[1]).trim()
@@ -162,39 +185,69 @@ function parseHtml(html: string): ScrapedContent {
       ctas.push(text)
     }
   }
+  return ctas.slice(0, 10)
+}
 
-  // Detect social proof (testimonials, reviews, customer logos)
-  const socialProofKeywords = /testimonial|review|customer|client|trusted\s+by|used\s+by|companies\s+use|loved\s+by|\d+\s*\+?\s*(?:users|customers|companies)|rating|stars/i
-  const hasSocialProof = socialProofKeywords.test(html)
+// Parse HTML and extract relevant content (used by fetch fallback)
+function parseHtml(html: string): ScrapedContent {
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i)
+  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : null
 
-  // Detect security badges
-  const securityKeywords = /ssl|secure|encrypted|pci\s*compliant|gdpr|soc\s*2|256[\-\s]?bit|https|verified|trust(?:ed)?[\s\-]?(?:site|badge|seal)/i
-  const hasSecurityBadges = securityKeywords.test(html)
+  const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i)
+  const metaDescription = metaDescMatch ? decodeHtmlEntities(metaDescMatch[1].trim()) : null
 
-  // Detect video embeds
-  const hasVideo = /youtube\.com|vimeo\.com|<video|wistia\.com|loom\.com/i.test(html)
+  const headingMatches = html.matchAll(/<h[123][^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/h[123]>/gi)
+  const headings: string[] = []
+  for (const match of headingMatches) {
+    const text = stripHtml(match[1]).trim()
+    if (text && text.length < 200) {
+      headings.push(text)
+    }
+  }
 
-  // Detect FAQ section
-  const hasFaq = /faq|frequently\s+asked|common\s+questions/i.test(html)
+  let cleanHtml = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+
+  const mainMatch = cleanHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i)
+    || cleanHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i)
+    || cleanHtml.match(/<div[^>]*(?:id|class)=["'][^"']*(?:content|main|app)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)
+
+  const contentHtml = mainMatch ? mainMatch[1] : cleanHtml
+
+  let mainContent = stripHtml(contentHtml)
+  mainContent = mainContent
+    .replace(/\s+/g, ' ')
+    .replace(/\n\s*\n/g, '\n')
+    .trim()
+
+  if (mainContent.length > 6000) {
+    mainContent = mainContent.substring(0, 6000) + '...'
+  }
 
   return {
     title,
     metaDescription,
-    headings: headings.slice(0, 20), // Limit to 20 headings
+    headings: headings.slice(0, 20),
     mainContent,
-    hasPricing,
-    hasLogin,
-    technologies,
-    ctas: ctas.slice(0, 10), // Limit to 10 CTAs
-    hasSocialProof,
-    hasSecurityBadges,
-    hasVideo,
-    hasFaq,
+    hasPricing: /pricing|price|cost|subscription|plan|tier|monthly|annually|\$\d+|€\d+|£\d+/i.test(html),
+    hasLogin: /sign\s*in|log\s*in|sign\s*up|create\s*account|register|auth/i.test(html),
+    technologies: detectTechnologies(html),
+    ctas: extractCtas(html),
+    hasSocialProof: /testimonial|review|customer|client|trusted\s+by|used\s+by|companies\s+use|loved\s+by|\d+\s*\+?\s*(?:users|customers|companies)|rating|stars/i.test(html),
+    hasSecurityBadges: /ssl|secure|encrypted|pci\s*compliant|gdpr|soc\s*2|256[\-\s]?bit|https|verified|trust(?:ed)?[\s\-]?(?:site|badge|seal)/i.test(html),
+    hasVideo: /youtube\.com|vimeo\.com|<video|wistia\.com|loom\.com/i.test(html),
+    hasFaq: /faq|frequently\s+asked|common\s+questions/i.test(html),
     error: null,
   }
 }
 
-// Strip HTML tags from string
 function stripHtml(html: string): string {
   return html
     .replace(/<[^>]+>/g, ' ')
@@ -206,7 +259,6 @@ function stripHtml(html: string): string {
     .replace(/&#39;/g, "'")
 }
 
-// Decode HTML entities
 function decodeHtmlEntities(text: string): string {
   return text
     .replace(/&nbsp;/g, ' ')

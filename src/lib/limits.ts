@@ -1,6 +1,6 @@
-import { db, projects, evaluations } from '@/lib/db'
+import { db, projects, evaluations, users } from '@/lib/db'
 import { eq, count } from 'drizzle-orm'
-import { TIERS, TierName, getUserTier, stripe } from './stripe'
+import { TIERS, TierName } from './stripe'
 
 export interface UsageLimits {
   tier: TierName
@@ -20,20 +20,15 @@ export interface UsageLimits {
 
 // Get user's current usage and limits
 export async function getUserLimits(userId: string): Promise<UsageLimits> {
-  // Get Stripe customer ID from Stripe (using metadata search)
-  let stripeCustomerId: string | null = null
-  try {
-    const customers = await stripe.customers.search({
-      query: `metadata['userId']:'${userId}'`,
-      limit: 1,
-    })
-    stripeCustomerId = customers.data[0]?.id || null
-  } catch {
-    // Stripe not configured or error - default to free
-  }
+  // Get user's Pro status from database
+  const user = await db
+    .select({ isProUser: users.isProUser })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+    .then(rows => rows[0])
 
-  // Get user's tier
-  const tier = await getUserTier(stripeCustomerId)
+  const tier: TierName = user?.isProUser === 1 ? 'pro' : 'free'
   const tierConfig = TIERS[tier]
 
   // Count user's projects

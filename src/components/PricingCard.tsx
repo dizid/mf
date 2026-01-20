@@ -30,10 +30,9 @@ export function PricingCard({
 
     setLoading(true)
     try {
-      const response = await fetch('/api/stripe/create-checkout', {
+      const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: tierKey }),
       })
 
       const data = await response.json()
@@ -53,7 +52,7 @@ export function PricingCard({
   const handleManageSubscription = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/stripe/create-portal', {
+      const response = await fetch('/api/stripe/portal', {
         method: 'POST',
       })
 
