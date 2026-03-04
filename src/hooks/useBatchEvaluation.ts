@@ -100,7 +100,7 @@ export function useBatchEvaluation(): UseBatchEvaluationReturn {
         i.id === itemId ? { ...i, projectId: project.id, status: 'evaluating' as const } : i
       ))
 
-      // Step 2: Run AI evaluation
+      // Step 2: Run AI evaluation (auto-saves to database)
       const evalRes = await fetch('/api/ai-evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,39 +110,6 @@ export function useBatchEvaluation(): UseBatchEvaluationReturn {
       if (!evalRes.ok) {
         const error = await evalRes.json()
         throw new Error(error.error?.message || 'AI evaluation failed')
-      }
-
-      const evalData = await evalRes.json()
-
-      // Step 3: Save evaluation with default personal scores
-      const saveRes = await fetch('/api/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: project.id,
-          scores: {
-            ...evalData.scores,
-            passion: 5,
-            learning: 5,
-            pride: 5,
-          },
-          notes: {
-            usability: evalData.reasoning?.usability,
-            value: evalData.reasoning?.value,
-            features: evalData.reasoning?.features,
-            polish: evalData.reasoning?.polish,
-            competition: evalData.reasoning?.competition,
-            market: evalData.reasoning?.market,
-            monetization: evalData.reasoning?.monetization,
-            maintenance: evalData.reasoning?.maintenance,
-            growth: evalData.reasoning?.growth,
-          },
-        }),
-      })
-
-      if (!saveRes.ok) {
-        const error = await saveRes.json()
-        throw new Error(error.error?.message || 'Failed to save evaluation')
       }
 
       // Mark as completed

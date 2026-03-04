@@ -1,16 +1,17 @@
-// Main AI evaluation orchestrator
+// Main AI evaluation orchestrator - Multi-agent team evaluation
 
 import type { Project } from '../db/schema'
 import { analyzeUrl } from '../analyzer'
-import { scrapeWebsite, type ScrapedContent } from './scraper'
+import { scrapeWebsite } from './scraper'
 import { callClaude, parseJsonResponse } from './claude'
 import {
-  SYSTEM_PROMPT,
   buildEvaluationPrompt,
   validateEvaluationResponse,
   type AIEvaluationResponse,
   type EvaluationInput,
 } from './prompts'
+import { AGENT_PERSONAS, type AgentPersona } from './agent-prompts'
+import { aggregateAgentScores, type AgentResult } from './agent-aggregator'
 
 export interface AIEvaluationResult {
   success: boolean
@@ -26,6 +27,10 @@ export interface AIEvaluationResult {
     monetization: number
     maintenance: number
     growth: number
+    // Personal metrics (from business analyst agent)
+    passion: number
+    learning: number
+    pride: number
   } | null
   reasoning: {
     usability: string
@@ -37,6 +42,9 @@ export interface AIEvaluationResult {
     monetization: string
     maintenance: string
     growth: string
+    passion: string
+    learning: string
+    pride: string
     summary: string
   } | null
   firstImpressions: {
@@ -56,9 +64,47 @@ export interface AIEvaluationResult {
     input: number
     output: number
   } | null
+  // Per-agent breakdown for transparency
+  agentBreakdown?: {
+    agentId: string
+    agentName: string
+    scores: Record<string, number>
+    summary: string
+  }[]
 }
 
-// Run full AI evaluation on a project
+// Run a single agent evaluation
+async function callAgentEvaluation(
+  persona: AgentPersona,
+  evalPrompt: string
+): Promise<AgentResult> {
+  console.log(`[AI Eval] Agent "${persona.name}" starting evaluation`)
+
+  const response = await callClaude(persona.systemPrompt, evalPrompt, {
+    maxTokens: persona.scoresPersonal ? 1800 : 1500,
+    temperature: persona.temperature,
+  })
+
+  const parsed = parseJsonResponse<AIEvaluationResponse>(response.content)
+
+  if (!validateEvaluationResponse(parsed)) {
+    throw new Error(`Invalid response from agent "${persona.name}"`)
+  }
+
+  console.log(`[AI Eval] Agent "${persona.name}" completed`)
+
+  return {
+    persona,
+    response: parsed,
+    personal: parsed.personal,
+    tokenUsage: {
+      input: response.inputTokens,
+      output: response.outputTokens,
+    },
+  }
+}
+
+// Run full AI evaluation with 3 parallel agent personas
 export async function runAIEvaluation(project: Project): Promise<AIEvaluationResult> {
   try {
     // Step 1: Run PageSpeed analysis
@@ -70,11 +116,10 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
     const scrapedContent = await scrapeWebsite(project.url)
 
     if (scrapedContent.error && !scrapedContent.mainContent) {
-      // If we couldn't scrape at all, still try with PageSpeed data
       console.warn(`[AI Eval] Scraping failed: ${scrapedContent.error}, continuing with limited data`)
     }
 
-    // Step 3: Build evaluation input
+    // Step 3: Build shared evaluation input prompt
     const evalInput: EvaluationInput = {
       projectName: project.name,
       url: project.url,
@@ -94,50 +139,40 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
       scrapedContent,
     }
 
-    // Step 4: Build prompt and call Claude
-    console.log(`[AI Eval] Calling Claude API`)
-    const prompt = buildEvaluationPrompt(evalInput)
-    const response = await callClaude(SYSTEM_PROMPT, prompt, {
-      maxTokens: 1500,
-      temperature: 0.3,
-    })
+    const evalPrompt = buildEvaluationPrompt(evalInput)
 
-    // Step 5: Parse and validate response
-    console.log(`[AI Eval] Parsing response`)
-    const parsed = parseJsonResponse<AIEvaluationResponse>(response.content)
+    // Step 4: Run 3 agent evaluations in parallel
+    console.log(`[AI Eval] Running ${AGENT_PERSONAS.length} agent evaluations in parallel`)
+    const agentResults = await Promise.allSettled(
+      AGENT_PERSONAS.map(persona => callAgentEvaluation(persona, evalPrompt))
+    )
 
-    if (!validateEvaluationResponse(parsed)) {
-      throw new Error('Invalid response structure from AI')
+    // Collect successful results
+    const successfulResults: AgentResult[] = []
+    for (const result of agentResults) {
+      if (result.status === 'fulfilled') {
+        successfulResults.push(result.value)
+      } else {
+        console.error(`[AI Eval] Agent failed:`, result.reason)
+      }
     }
+
+    if (successfulResults.length === 0) {
+      throw new Error('All agent evaluations failed')
+    }
+
+    console.log(`[AI Eval] ${successfulResults.length}/${AGENT_PERSONAS.length} agents succeeded`)
+
+    // Step 5: Aggregate scores from all agents
+    const aggregated = aggregateAgentScores(successfulResults)
 
     // Step 6: Return combined result
     return {
       success: true,
-      scores: {
-        usability: parsed.product.usability.score,
-        value: parsed.product.value.score,
-        features: parsed.product.features.score,
-        polish: parsed.product.polish.score,
-        competition: parsed.product.competition.score,
-        market: parsed.business.market.score,
-        monetization: parsed.business.monetization.score,
-        maintenance: parsed.business.maintenance.score,
-        growth: parsed.business.growth.score,
-      },
-      reasoning: {
-        usability: parsed.product.usability.reason,
-        value: parsed.product.value.reason,
-        features: parsed.product.features.reason,
-        polish: parsed.product.polish.reason,
-        competition: parsed.product.competition.reason,
-        market: parsed.business.market.reason,
-        monetization: parsed.business.monetization.reason,
-        maintenance: parsed.business.maintenance.reason,
-        growth: parsed.business.growth.reason,
-        summary: parsed.summary,
-      },
-      firstImpressions: parsed.firstImpressions,
-      recommendations: parsed.recommendations,
+      scores: aggregated.scores,
+      reasoning: aggregated.reasoning,
+      firstImpressions: aggregated.firstImpressions,
+      recommendations: aggregated.recommendations,
       pageSpeedData: {
         performance: pageSpeedData.performance,
         accessibility: pageSpeedData.accessibility,
@@ -145,10 +180,8 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
         mobile: pageSpeedData.mobile,
       },
       error: null,
-      tokenUsage: {
-        input: response.inputTokens,
-        output: response.outputTokens,
-      },
+      tokenUsage: aggregated.tokenUsage,
+      agentBreakdown: aggregated.agentBreakdown,
     }
   } catch (error) {
     console.error('[AI Eval] Error:', error)
@@ -165,11 +198,9 @@ export async function runAIEvaluation(project: Project): Promise<AIEvaluationRes
   }
 }
 
-// Estimate cost of an evaluation (in USD)
+// Estimate cost of an evaluation (in USD) - now 3x for multi-agent
 export function estimateEvaluationCost(inputTokens: number, outputTokens: number): number {
-  // Claude Sonnet pricing (as of 2024)
   const inputCostPer1K = 0.003
   const outputCostPer1K = 0.015
-
   return (inputTokens / 1000) * inputCostPer1K + (outputTokens / 1000) * outputCostPer1K
 }

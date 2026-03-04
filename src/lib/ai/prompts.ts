@@ -191,6 +191,12 @@ export interface AIEvaluationResponse {
     maintenance: { score: number; reason: string }
     growth: { score: number; reason: string }
   }
+  // Optional personal metrics (only from business analyst agent)
+  personal?: {
+    passion: { score: number; reason: string }
+    learning: { score: number; reason: string }
+    pride: { score: number; reason: string }
+  }
   recommendations: string[]
   summary: string
 }
@@ -233,6 +239,16 @@ export function validateEvaluationResponse(data: unknown): data is AIEvaluationR
 
   // Check summary
   if (typeof d.summary !== 'string') return false
+
+  // Check optional personal metrics (business analyst only)
+  if (d.personal != null) {
+    if (typeof d.personal !== 'object') return false
+    const personal = d.personal as Record<string, unknown>
+    const personalKeys = ['passion', 'learning', 'pride']
+    for (const key of personalKeys) {
+      if (!isValidMetric(personal[key])) return false
+    }
+  }
 
   return true
 }
